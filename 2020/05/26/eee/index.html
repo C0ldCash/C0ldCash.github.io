@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+
+  
+  <title>关于is_numeric()函数的作用和绕过 | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="今天偶然看到了一道CTF题目，主要是对is_numeric()函数作用和绕过方式的理解，下面总结一下这两部分。 is_numeric()函数的作用is_numeric() 函数用于检测变量是否为数字或数字字符串。如果是数字或者字符串就返回true，如果不是则返回flase，以下面代码为例： 12345678&lt;?php  $num &#x3D; 123;    $str &#x3D; &amp;#x27;hello ha">
+<meta property="og:type" content="article">
+<meta property="og:title" content="关于is_numeric()函数的作用和绕过">
+<meta property="og:url" content="http://yoursite.com/2020/05/26/eee/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="今天偶然看到了一道CTF题目，主要是对is_numeric()函数作用和绕过方式的理解，下面总结一下这两部分。 is_numeric()函数的作用is_numeric() 函数用于检测变量是否为数字或数字字符串。如果是数字或者字符串就返回true，如果不是则返回flase，以下面代码为例： 12345678&lt;?php  $num &#x3D; 123;    $str &#x3D; &amp;#x27;hello ha">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2020/05/26/c8dmGvWwEH4qaM1.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/05/26/pDtjrlnPQXzHVFB.jpg">
+<meta property="article:published_time" content="2020-05-26T04:56:39.000Z">
+<meta property="article:modified_time" content="2020-05-26T07:12:50.749Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="代码审计">
+<meta property="article:tag" content="CTF">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2020/05/26/c8dmGvWwEH4qaM1.jpg">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 5.0.2"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-eee" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2020/05/26/eee/" class="article-date">
+  <time datetime="2020-05-26T04:56:39.000Z" itemprop="datePublished">2020-05-26</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/">渗透测试</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      关于is_numeric()函数的作用和绕过
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>今天偶然看到了一道CTF题目，主要是对is_numeric()函数作用和绕过方式的理解，下面总结一下这两部分。</p>
+<h1 id="is-numeric-函数的作用"><a href="#is-numeric-函数的作用" class="headerlink" title="is_numeric()函数的作用"></a>is_numeric()函数的作用</h1><p><strong>is_numeric()</strong> 函数用于检测变量是否为数字或数字字符串。如果是数字或者字符串就返回true，如果不是则返回flase，以下面代码为例：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?php</span></span><br><span class="line">  $num = <span class="number">123</span>;</span><br><span class="line">    $str = <span class="string">&#x27;hello hacker&#x27;</span>;</span><br><span class="line">  $result1 = is_numeric($num);</span><br><span class="line">    $result2 = is_numeric($str);</span><br><span class="line">    <span class="keyword">echo</span> $result1;</span><br><span class="line">    <span class="keyword">echo</span> $result2;</span><br><span class="line">  <span class="meta">?&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>输入出结果为，$result1=ture;$result2=flase</p>
+<p>注意：is_numeric()函数一般适用于PHP4，PHP5，php7的版本。</p>
+<h1 id="is-numeric-函数的绕过方式"><a href="#is-numeric-函数的绕过方式" class="headerlink" title="is_numeric()函数的绕过方式"></a>is_numeric()函数的绕过方式</h1><p>注意下面这段代码：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?php</span></span><br><span class="line">  $num=$_GET[<span class="string">&#x27;num&#x27;</span>];</span><br><span class="line">    <span class="keyword">if</span>(!is_numeric($num))</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">echo</span> $num;</span><br><span class="line">        <span class="keyword">if</span>($num==<span class="number">1</span>)&#123;</span><br><span class="line">            <span class="keyword">echo</span> <span class="string">&#x27;flag&#123;**********&#125;&#x27;</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    &#125;</span><br><span class="line"><span class="meta">?&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>分析一下这段代码，只有在<font color='red'>$num不是数字或者字符串，并且$num等于1</font>的时候才能输出flag。这里介绍两种绕过方式。</p>
+<h2 id="科学计数法绕过"><a href="#科学计数法绕过" class="headerlink" title="科学计数法绕过"></a>科学计数法绕过</h2><p>科学计数法在运算上最终等于一个数值，但是在格式上是一个字符串，可以满足代码的要求，所以我们只要构造最终值等于1的科学计数法即可。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">构造payload：    ?$num &#x3D; 1*e*0.1</span><br></pre></td></tr></table></figure>
+
+<p>得到flag如图：</p>
+<img src="https://i.loli.net/2020/05/26/c8dmGvWwEH4qaM1.jpg" alt="Xnip2020-05-26_14-42-14.jpg" style="zoom: 80%;" />
+
+<h2 id="利用PHP弱类型语言特性"><a href="#利用PHP弱类型语言特性" class="headerlink" title="利用PHP弱类型语言特性"></a>利用PHP弱类型语言特性</h2><p>因为PHP是一种弱类型语言，所以有’==’和’===’两种判断方式，这里对两种判断方式的区别不做阐述了，基础的东西都可以百度。’==’只要在数值上相等就可以了，类型上不作要求。那么我们思考这样一个问题：<font color='red'>PHP是如何判断两个变量在数值上相等的</font>，或者换一个说法，如何判断一个数字和一个字符串在数值上相等。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">php判断字符串以数字开头即可判断与相应的数值等值。比如：1x &#x3D;&#x3D; 1; 2 &#x3D;&#x3D; 2a</span><br></pre></td></tr></table></figure>
+
+<p>所以我们构造payload:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">payload:    ?num&#x3D;1a</span><br></pre></td></tr></table></figure>
+
+<p>得到flag:</p>
+<p><img src="https://i.loli.net/2020/05/26/pDtjrlnPQXzHVFB.jpg" alt="Xnip2020-05-26_14-56-30.jpg"></p>
+<h1 id="is-numeric-函数与mysql结合的利用"><a href="#is-numeric-函数与mysql结合的利用" class="headerlink" title="is_numeric()函数与mysql结合的利用"></a>is_numeric()函数与mysql结合的利用</h1><p>is_numeric()函数与mysql结合时也会发生意想不到的事情。比如下面这段代码：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$s = is_numeric($_GET[<span class="string">&#x27;s&#x27;</span>])?$_GET[<span class="string">&#x27;s&#x27;</span>]:<span class="number">0</span>;</span><br><span class="line">$sql=<span class="string">&quot;insert into test(type)values($s);&quot;</span>;</span><br><span class="line">mysql_query($sql);</span><br></pre></td></tr></table></figure>
+
+<p>这段代码的本意是好的，判断参数s是否为数字，是则返回数字，不是则返回0，然后带入数据库查询。这样就可以过滤掉字符输入，构造不了sql查询语句，可以有效地防止sql注入。但是这种方法忽略了is_numeric()函数和mysql数据库对十六进制的不同转义方式：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">is_numeric()：当遇到十六进制时，会判断成数字。比如：</span><br><span class="line">        &lt;?php echo is_numeric(&#39;0x233333&#39;);?&gt;    &#x2F;&#x2F;输出结果为1，是true</span><br><span class="line"></span><br><span class="line">mysql：而在mysql中，插入0x开头的十六进制数的时候，会自动转成字符插入。</span><br></pre></td></tr></table></figure>
+
+<p>因为这样的原理，我们可以把’1 or 1’转换成十六进制</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&#39;1 or 1&#39; 转换成 0x31206f722031 就可以继续执行语句了。</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>php使用弱类型语言，类似于is_numeric()函数的不安全函数还有很多，今后要慢慢总结。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2020/05/26/eee/" data-id="ckdpdcy5q0001ok9r50rr9zsw" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/CTF/" rel="tag">CTF</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" rel="tag">代码审计</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2020/05/27/xxe/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          浅谈XXE漏洞(一)——有回显的XXE漏洞
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2020/05/25/file-inclusion/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">浅谈文件包含漏洞</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%85%B6%E4%BB%96/">其他</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/">渗透测试</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/%E5%AE%9E%E6%88%98/">实战</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E9%A1%B5%E9%9D%A2%E6%B5%8B%E8%AF%95/">页面测试</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/CTF/" rel="tag">CTF</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SQL%E6%B3%A8%E5%85%A5/" rel="tag">SQL注入</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SSRF/" rel="tag">SSRF</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/WEB%E9%9D%B6%E5%9C%BA/" rel="tag">WEB靶场</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/XXE/" rel="tag">XXE</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/web%E6%BC%8F%E6%B4%9E/" rel="tag">web漏洞</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/window%E5%85%A5%E4%BE%B5/" rel="tag">window入侵</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" rel="tag">代码审计</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86/" rel="tag">信息收集</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%85%B6%E4%BB%96/" rel="tag">其他</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C/" rel="tag">命令执行</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B7%A5%E5%85%B7/" rel="tag">工具</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%96%87%E4%BB%B6%E5%8C%85%E5%90%AB/" rel="tag">文件包含</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%B6%E5%9C%BA/" rel="tag">靶场</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%A1%B5%E9%9D%A2%E6%B5%8B%E8%AF%95/" rel="tag">页面测试</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/CTF/" style="font-size: 10px;">CTF</a> <a href="/tags/SQL%E6%B3%A8%E5%85%A5/" style="font-size: 10px;">SQL注入</a> <a href="/tags/SSRF/" style="font-size: 10px;">SSRF</a> <a href="/tags/WEB%E9%9D%B6%E5%9C%BA/" style="font-size: 10px;">WEB靶场</a> <a href="/tags/XXE/" style="font-size: 10px;">XXE</a> <a href="/tags/web%E6%BC%8F%E6%B4%9E/" style="font-size: 20px;">web漏洞</a> <a href="/tags/window%E5%85%A5%E4%BE%B5/" style="font-size: 10px;">window入侵</a> <a href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" style="font-size: 10px;">代码审计</a> <a href="/tags/%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86/" style="font-size: 15px;">信息收集</a> <a href="/tags/%E5%85%B6%E4%BB%96/" style="font-size: 10px;">其他</a> <a href="/tags/%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C/" style="font-size: 10px;">命令执行</a> <a href="/tags/%E5%B7%A5%E5%85%B7/" style="font-size: 10px;">工具</a> <a href="/tags/%E6%96%87%E4%BB%B6%E5%8C%85%E5%90%AB/" style="font-size: 10px;">文件包含</a> <a href="/tags/%E9%9D%B6%E5%9C%BA/" style="font-size: 10px;">靶场</a> <a href="/tags/%E9%A1%B5%E9%9D%A2%E6%B5%8B%E8%AF%95/" style="font-size: 10px;">页面测试</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/08/">August 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/06/">June 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/05/">May 2020</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2020/08/05/Pentester/">Pentester靶场学习writup</a>
+          </li>
+        
+          <li>
+            <a href="/2020/06/28/information-1/">信息收集脑图</a>
+          </li>
+        
+          <li>
+            <a href="/2020/06/18/window-ruqin/">window入侵试验</a>
+          </li>
+        
+          <li>
+            <a href="/2020/06/14/information/">信息收集笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2020/06/03/sql-test/">记录一次最基本的SQL注入实战</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2020 John Doe<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+  
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+  </div>
+</body>
+</html>

